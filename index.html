@@ -25,25 +25,61 @@
 </div>
 
 <script charset="utf-8">
+    // Create nickname
+    var nickname = Math.random().toString(36).substr(2, 5).toUpperCase();
+    $('#chatmessage')[0].placeholder = nickname + ":";
+
     // Initialize PouchDB
     var db = new PouchDB('chat');
+
+    // Unsynced messages
+    var unsynced = new Array();
 
     // Handler for send button
     var sendMessageHandler = function () {
         var chatmessage = $('#chatmessage');
+
+        if (chatmessage.val() == 'clear') {
+            resetMessagesHandler();
+            chatmessage.val('');
+            return false;
+        }
+
         var id = new Date();
 
         db.post(
             {
                 _id: id,
+                nickname: nickname,
                 text: chatmessage.val()
             }, updateDocs);
         chatmessage.val('');
+
+        unsynced.push(id.valueOf());
 
         return false;
     }
 
     $('#chatform').submit(sendMessageHandler);
+
+    // Handler for deleting a message
+    var deleteMessageHandler = function (id) {
+        db.get(id, function (err, doc) {
+            db.remove(doc, [], updateDocs);
+        });
+    }
+
+    // Handler for clearing messages
+    var resetMessagesHandler = function(){
+        db.allDocs(function(err, result){
+            deletedDocs = [];
+            for (key in result.rows) {
+                doc = result.rows[key];
+                deletedDocs.push({'_id':doc['id'],'_rev':doc['value']['rev'],'_deleted':true});
+            }
+            db.bulkDocs(deletedDocs, updateDocs);
+        });
+    }
 
     // Handler for updating the table
     var updateDocs = function () {
@@ -61,8 +97,15 @@
         }
         else {
             for (var key in result.rows) {
-                item = result.rows[key];
-                table.append("<tr><td>" + item.doc['text'] + "</td></tr>");
+                var item = result.rows[key];
+                var id = item.doc['_id'];
+                var date = new Date(id);
+                var syncstatus = unsynced.indexOf(Date.parse(item.doc['_id'])) == -1;
+
+                table.append("<tr style='opacity: " + (syncstatus ? '1' : '0.5') + "'>" +
+                    "<td><strong>" + item.doc['nickname'] + "</strong> <small>" + date.toLocaleTimeString() + "</small><br />" + item.doc['text'] + "</td>" +
+                    "<td style='width: 30px'> <a href='#app' onclick=\"deleteMessageHandler('" + item['id'] + "');\"><span class='glyphicon glyphicon-trash'></span></a></td>" +
+                    "</tr>");
             }
         }
 
@@ -74,11 +117,27 @@
         }, (container.scrollTop() != 0) ? 500 : 200);
     }
 
+    // Handler for marking messages as synced
+    var markSynced = function (change) {
+        for (var doc in change.change.docs) {
+            var index = unsynced.indexOf(doc['timestamp']);
+            unsynced.splice(index, 1);
+        }
+
+        updateDocs();
+    }
+
     // Set up PouchDB synchronisation
     PouchDB.sync('chat', 'http://localhost:5985/chat', {
         live: true,
         retry: true
-    }).on('change', updateDocs);
+    }).on('change', markSynced);
+
+    // Second replication
+    PouchDB.sync('chat', 'http://localhost:5986/chat', {
+        live: true,
+        retry: true
+    }).on('change', markSynced);
 
     updateDocs();
 </script>
