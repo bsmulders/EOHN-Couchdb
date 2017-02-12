@@ -1,0 +1,17 @@
+version: "2"
+networks:
+  backend:
+services:
+  couch1:
+    image: bnbwebexpertise/couchdb-cors
+    ports:
+      - 5985:5984
+    networks:
+      backend:
+
+  couch2:
+    image: bnbwebexpertise/couchdb-cors
+    ports:
+      - 5986:5984
+    networks:
+      backend:

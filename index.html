@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>EOHN PouchDB Chat</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pouchdb/6.1.1/pouchdb.js"></script>
+</head>
+<body style="margin: 30px">
+
+<div id="app" class="panel panel-default" style="padding: 20px">
+    <div id="table-container" class="well" style="padding: 0px; height: 320px; overflow: auto">
+        <table class="table table-hover table-striped" style="margin: 0px">
+            <tbody id="table-body">
+            </tbody>
+        </table>
+    </div>
+
+    <form id="chatform" class="form-inline" role="form">
+        <input type="text" id="chatmessage" class="form-control input-lg" style="width: 100%"
+               placeholder="Enter a message">
+    </form>
+</div>
+
+<script charset="utf-8">
+    // Initialize PouchDB
+    var db = new PouchDB('chat');
+
+    // Handler for send button
+    var sendMessageHandler = function () {
+        var chatmessage = $('#chatmessage');
+        var id = new Date();
+
+        db.post(
+            {
+                _id: id,
+                text: chatmessage.val()
+            }, updateDocs);
+        chatmessage.val('');
+
+        return false;
+    }
+
+    $('#chatform').submit(sendMessageHandler);
+
+    // Handler for updating the table
+    var updateDocs = function () {
+        db.allDocs({include_docs: true, descending: false}, updateConsole);
+    }
+
+    // Build table
+    var updateConsole = function (err, result) {
+        // Populate table body
+        var table = $('#table-body');
+
+        table.empty();
+        if (result.rows.length == 0) {
+            table.append("<tr><td>Please enter a message to start the chat</td></tr>");
+        }
+        else {
+            for (var key in result.rows) {
+                item = result.rows[key];
+                table.append("<tr><td>" + item.doc['text'] + "</td></tr>");
+            }
+        }
+
+        // Scroll to bottom
+        var container = $('#table-container');
+
+        container.stop().animate({
+            scrollTop: container[0].scrollHeight
+        }, (container.scrollTop() != 0) ? 500 : 200);
+    }
+
+    // Set up PouchDB synchronisation
+    PouchDB.sync('chat', 'http://localhost:5985/chat', {
+        live: true,
+        retry: true
+    }).on('change', updateDocs);
+
+    updateDocs();
+</script>
+
+</body>
+</html>
