@@ -26,7 +26,8 @@
 
 <script charset="utf-8">
     // Initialize PouchDB
-    var db = new PouchDB('chat');
+    var dbname = 'chat_' + Math.random();
+    var db = new PouchDB(dbname);
 
     // Handler for send button
     var sendMessageHandler = function () {
@@ -75,7 +76,7 @@
     }
 
     // Set up PouchDB synchronisation
-    PouchDB.sync('chat', 'http://localhost:5985/chat', {
+    PouchDB.sync(dbname, 'http://localhost:5985/chat', {
         live: true,
         retry: true
     }).on('change', updateDocs);
